@@ -8,13 +8,10 @@ namespace FairyGUI
 	/// </summary>
 	public class GImage : GObject, IColorGear
 	{
-		public GearColor gearColor { get; private set; }
-
 		Image _content;
 
 		public GImage()
 		{
-			gearColor = new GearColor(this);
 		}
 
 		override protected void CreateDisplayObject()
@@ -33,8 +30,7 @@ namespace FairyGUI
 			set
 			{
 				_content.color = value;
-				if (gearColor.controller != null)
-					gearColor.UpdateState();
+				UpdateGear(4);
 			}
 		}
 
@@ -132,29 +128,19 @@ namespace FairyGUI
 			set { _content.shader = value; }
 		}
 
-		override public void ConstructFromResource(PackageItem pkgItem)
+		override public void ConstructFromResource()
 		{
-			_packageItem = pkgItem;
-			sourceWidth = _packageItem.width;
-			sourceHeight = _packageItem.height;
+			sourceWidth = packageItem.width;
+			sourceHeight = packageItem.height;
 			initWidth = sourceWidth;
 			initHeight = sourceHeight;
-			_content.scale9Grid = _packageItem.scale9Grid;
-			_content.scaleByTile = _packageItem.scaleByTile;
+			_content.scale9Grid = packageItem.scale9Grid;
+			_content.scaleByTile = packageItem.scaleByTile;
+			_content.tileGridIndice = packageItem.tileGridIndice;
 
-			_packageItem.Load();
-
-			_content.texture = _packageItem.texture;
+			_content.texture = packageItem.texture;
 
 			SetSize(sourceWidth, sourceHeight);
-		}
-
-		override public void HandleControllerChanged(Controller c)
-		{
-			base.HandleControllerChanged(c);
-
-			if (gearColor.controller == c)
-				gearColor.Apply();
 		}
 
 		override public void Setup_BeforeAdd(XML xml)
@@ -164,7 +150,7 @@ namespace FairyGUI
 			string str;
 			str = xml.GetAttribute("color");
 			if (str != null)
-				this.color = ToolSet.ConvertFromHtmlColor(str);
+				_content.color = ToolSet.ConvertFromHtmlColor(str);
 
 			str = xml.GetAttribute("flip");
 			if (str != null)
@@ -180,15 +166,6 @@ namespace FairyGUI
 				_content.fillClockwise = xml.GetAttributeBool("fillClockwise", true);
 				_content.fillAmount = (float)xml.GetAttributeInt("fillAmount", 100) / 100;
 			}
-		}
-
-		override public void Setup_AfterAdd(XML xml)
-		{
-			base.Setup_AfterAdd(xml);
-
-			XML cxml = xml.GetNode("gearColor");
-			if (cxml != null)
-				gearColor.Setup(cxml);
 		}
 	}
 }

@@ -35,6 +35,11 @@ namespace FairyGUI
 		public bool autoResizeItem;
 
 		/// <summary>
+		/// 如果true，当item不可见时自动折叠，否则依然占位
+		/// </summary>
+		public bool foldInvisibleItems = false;
+
+		/// <summary>
 		/// List selection mode
 		/// </summary>
 		/// <seealso cref="ListSelectionMode"/>
@@ -64,6 +69,9 @@ namespace FairyGUI
 		int _lineItemCount;
 		int _lineGap;
 		int _columnGap;
+		AlignType _align;
+		VertAlignType _verticalAlign;
+
 		GObjectPool _pool;
 		bool _selectionHandled;
 		int _lastSelectedIndex;
@@ -95,6 +103,9 @@ namespace FairyGUI
 			autoResizeItem = true;
 			this.opaque = true;
 			scrollItemToViewOnClick = true;
+
+			container = new Container();
+			rootContainer.AddChild(container);
 
 			onClickItem = new EventListener(this, "onClickItem");
 		}
@@ -173,6 +184,42 @@ namespace FairyGUI
 				if (_columnGap != value)
 				{
 					_columnGap = value;
+					SetBoundsChangedFlag();
+					if (_virtual)
+						SetVirtualListChangedFlag(true);
+				}
+			}
+		}
+
+		/// <summary>
+		/// 
+		/// </summary>
+		public AlignType align
+		{
+			get { return _align; }
+			set
+			{
+				if (_align != value)
+				{
+					_align = value;
+					SetBoundsChangedFlag();
+					if (_virtual)
+						SetVirtualListChangedFlag(true);
+				}
+			}
+		}
+
+		/// <summary>
+		/// 
+		/// </summary>
+		public VertAlignType verticalAlign
+		{
+			get { return _verticalAlign; }
+			set
+			{
+				if (_verticalAlign != value)
+				{
+					_verticalAlign = value;
 					SetBoundsChangedFlag();
 					if (_virtual)
 						SetVirtualListChangedFlag(true);
@@ -824,7 +871,7 @@ namespace FairyGUI
 				while (i >= 0)
 				{
 					obj = this.GetChildAt(i);
-					if (obj.visible)
+					if (!foldInvisibleItems || obj.visible)
 						break;
 					i--;
 				}
@@ -866,12 +913,9 @@ namespace FairyGUI
 			if (autoResizeItem)
 				AdjustItemsSize();
 
-			if (_layout == ListLayoutType.FlowHorizontal || _layout == ListLayoutType.FlowVertical)
-			{
-				SetBoundsChangedFlag();
-				if (_virtual)
-					SetVirtualListChangedFlag(true);
-			}
+			SetBoundsChangedFlag();
+			if (_virtual)
+				SetVirtualListChangedFlag(true);
 		}
 
 		/// <summary>
@@ -931,6 +975,9 @@ namespace FairyGUI
 			if (_virtual)
 			{
 				CheckVirtualList();
+
+				if (index >= _virtualItems.Count)
+					throw new Exception("Invalid child index: " + index + ">" + _virtualItems.Count);
 
 				Rect rect;
 				if (_layout == ListLayoutType.SingleColumn || _layout == ListLayoutType.FlowHorizontal)
@@ -1179,7 +1226,9 @@ namespace FairyGUI
 					ch += _virtualItems[i].size.y + _lineGap;
 				if (ch > 0)
 					ch -= _lineGap;
-				this.scrollPane.SetContentSize(this.scrollPane.contentWidth, ch);
+				cw = this.scrollPane.contentWidth;
+				HandleAlign(cw, ch);
+				this.scrollPane.SetContentSize(cw, ch);
 			}
 			else
 			{
@@ -1187,7 +1236,9 @@ namespace FairyGUI
 					cw += _virtualItems[i].size.x + _columnGap;
 				if (cw > 0)
 					cw -= _columnGap;
-				this.scrollPane.SetContentSize(cw, this.scrollPane.contentHeight);
+				ch = this.scrollPane.contentHeight;
+				HandleAlign(cw, ch);
+				this.scrollPane.SetContentSize(cw, ch);
 			}
 
 			_eventLocked = false;
@@ -1326,6 +1377,7 @@ namespace FairyGUI
 				}
 
 				HandleScroll1(forceUpdate);
+				HandleArchOrder1();
 			}
 			else
 			{
@@ -1340,9 +1392,8 @@ namespace FairyGUI
 				}
 
 				HandleScroll2(forceUpdate);
+				HandleArchOrder2();
 			}
-
-			HandleArchOrder();
 
 			_boundsChanged = false;
 		}
@@ -1659,7 +1710,7 @@ namespace FairyGUI
 			enterCounter--;
 		}
 
-		void HandleArchOrder()
+		void HandleArchOrder1()
 		{
 			if (this.childrenRenderOrder == ChildrenRenderOrder.Arch)
 			{
@@ -1670,9 +1721,34 @@ namespace FairyGUI
 				for (int i = 0; i < cnt; i++)
 				{
 					GObject obj = GetChildAt(i);
-					if (obj.visible)
+					if (!foldInvisibleItems || obj.visible)
 					{
 						dist = Mathf.Abs(mid - obj.y - obj.height / 2);
+						if (dist < minDist)
+						{
+							minDist = dist;
+							apexIndex = i;
+						}
+					}
+				}
+				this.apexIndex = apexIndex;
+			}
+		}
+
+		void HandleArchOrder2()
+		{
+			if (this.childrenRenderOrder == ChildrenRenderOrder.Arch)
+			{
+				float mid = this.scrollPane.posX + this.viewWidth / 2;
+				float minDist = int.MaxValue, dist;
+				int apexIndex = 0;
+				int cnt = this.numChildren;
+				for (int i = 0; i < cnt; i++)
+				{
+					GObject obj = GetChildAt(i);
+					if (!foldInvisibleItems || obj.visible)
+					{
+						dist = Mathf.Abs(mid - obj.x - obj.width / 2);
 						if (dist < minDist)
 						{
 							minDist = dist;
@@ -1692,19 +1768,53 @@ namespace FairyGUI
 				{
 					float saved = yValue;
 					int index = GetIndexOnPos1(ref yValue);
-					if (saved - yValue > _virtualItems[index].size.y / 2 && index < _realNumItems)
+					if (index < _virtualItems.Count && saved - yValue > _virtualItems[index].size.y / 2 && index < _realNumItems)
 						yValue += _virtualItems[index].size.y + _lineGap;
 				}
 				else
 				{
 					float saved = xValue;
 					int index = GetIndexOnPos2(ref xValue);
-					if (saved - xValue > _virtualItems[index].size.x / 2 && index < _realNumItems)
+					if (index < _virtualItems.Count && saved - xValue > _virtualItems[index].size.x / 2 && index < _realNumItems)
 						xValue += _virtualItems[index].size.x + _columnGap;
 				}
 			}
 			else
 				base.GetSnappingPosition(ref xValue, ref yValue);
+		}
+
+		private void HandleAlign(float contentWidth, float contentHeight)
+		{
+			Vector2 newOffset = Vector2.zero;
+			if (_layout == ListLayoutType.SingleColumn || _layout == ListLayoutType.FlowHorizontal)
+			{
+				if (contentHeight < viewHeight)
+				{
+					if (_verticalAlign == VertAlignType.Middle)
+						newOffset.y = (int)((viewHeight - contentHeight) / 2);
+					else if (_verticalAlign == VertAlignType.Bottom)
+						newOffset.y = viewHeight - contentHeight;
+				}
+			}
+			else
+			{
+				if (contentWidth < this.viewWidth)
+				{
+					if (_align == AlignType.Center)
+						newOffset.x = (int)((viewWidth - contentWidth) / 2);
+					else if (_align == AlignType.Right)
+						newOffset.x = viewWidth - contentWidth;
+				}
+			}
+
+			if (newOffset != _alignOffset)
+			{
+				_alignOffset = newOffset;
+				if (scrollPane != null)
+					scrollPane.AdjustMaskContainer();
+				else
+					container.SetXY(_margin.left + _alignOffset.x, _margin.top + _alignOffset.y);
+			}
 		}
 
 		override protected void UpdateBounds()
@@ -1725,7 +1835,7 @@ namespace FairyGUI
 				for (i = 0; i < cnt; i++)
 				{
 					child = GetChildAt(i);
-					if (!child.visible)
+					if (foldInvisibleItems && !child.visible)
 						continue;
 
 					sw = Mathf.CeilToInt(child.width);
@@ -1746,7 +1856,7 @@ namespace FairyGUI
 				for (i = 0; i < cnt; i++)
 				{
 					child = GetChildAt(i);
-					if (!child.visible)
+					if (foldInvisibleItems && !child.visible)
 						continue;
 
 					sw = Mathf.CeilToInt(child.width);
@@ -1769,7 +1879,7 @@ namespace FairyGUI
 				for (i = 0; i < cnt; i++)
 				{
 					child = GetChildAt(i);
-					if (!child.visible)
+					if (foldInvisibleItems && !child.visible)
 						continue;
 
 					sw = Mathf.CeilToInt(child.width);
@@ -1806,7 +1916,7 @@ namespace FairyGUI
 				for (i = 0; i < cnt; i++)
 				{
 					child = GetChildAt(i);
-					if (!child.visible)
+					if (foldInvisibleItems && !child.visible)
 						continue;
 
 					sw = Mathf.CeilToInt(child.width);
@@ -1836,6 +1946,7 @@ namespace FairyGUI
 				ch = maxHeight;
 			}
 
+			HandleAlign(cw, ch);
 			SetBounds(0, 0, cw, ch);
 
 			this.InvalidateBatchingState();
@@ -1870,6 +1981,14 @@ namespace FairyGUI
 			str = xml.GetAttribute("margin");
 			if (str != null)
 				_margin.Parse(str);
+
+			str = xml.GetAttribute("align");
+			if (str != null)
+				_align = FieldTypes.ParseAlign(str);
+
+			str = xml.GetAttribute("vAlign");
+			if (str != null)
+				_verticalAlign = FieldTypes.ParseVerticalAlign(str);
 
 			if (overflow == OverflowType.Scroll)
 			{
@@ -1921,30 +2040,28 @@ namespace FairyGUI
 
 			autoResizeItem = xml.GetAttributeBool("autoItemSize", true);
 
-			XMLList col = xml.Elements("item");
-			foreach (XML ix in col)
+			XMLList.Enumerator et = xml.GetEnumerator("item");
+			while (et.MoveNext())
 			{
+				XML ix = et.Current;
 				string url = ix.GetAttribute("url");
 				if (string.IsNullOrEmpty(url))
+				{
 					url = defaultItem;
-				if (string.IsNullOrEmpty(url))
-					continue;
+					if (string.IsNullOrEmpty(url))
+						continue;
+				}
 
 				GObject obj = GetFromPool(url);
 				if (obj != null)
 				{
 					AddChild(obj);
-					if (obj is GButton)
-					{
-						((GButton)obj).title = ix.GetAttribute("title");
-						((GButton)obj).icon = ix.GetAttribute("icon");
-					}
-					else if (obj is GLabel)
-					{
-						((GLabel)obj).title = ix.GetAttribute("title");
-						((GLabel)obj).icon = ix.GetAttribute("icon");
-					}
-
+					str = ix.GetAttribute("title");
+					if (str != null)
+						obj.text = str;
+					str = ix.GetAttribute("icon");
+					if (str != null)
+						obj.icon = str;
 					str = ix.GetAttribute("name");
 					if (str != null)
 						obj.name = str;

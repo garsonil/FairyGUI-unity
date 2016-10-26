@@ -36,9 +36,14 @@ namespace FairyGUI
 		/// </summary>
 		public IHitTest hitArea;
 
-		///
+		/// <summary>
+		/// 
+		/// </summary>
 		public bool touchChildren;
 
+		/// <summary>
+		/// 
+		/// </summary>
 		public EventCallback0 onUpdate;
 
 		List<DisplayObject> _children;
@@ -50,36 +55,38 @@ namespace FairyGUI
 		bool _fBatching;
 		List<DisplayObject> _descendants;
 
-		internal int _panelOrder;
 		internal bool _disabled;
-		bool _ownsGameObject;
+		internal int _panelOrder;
 
+		/// <summary>
+		/// 
+		/// </summary>
 		public Container()
 			: base()
 		{
-			_ownsGameObject = true;
-
 			CreateGameObject("Container");
 			Init();
 		}
 
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="gameObjectName"></param>
 		public Container(string gameObjectName)
 			: base()
 		{
-			_ownsGameObject = true;
-
 			CreateGameObject(gameObjectName);
 			Init();
 		}
 
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="attachTarget"></param>
 		public Container(GameObject attachTarget)
 			: base()
 		{
-			_ownsGameObject = false;
-
-			this.gameObject = attachTarget;
-			cachedTransform = gameObject.transform;
-
+			SetGameObject(attachTarget);
 			Init();
 		}
 
@@ -89,17 +96,31 @@ namespace FairyGUI
 			touchChildren = true;
 		}
 
+		/// <summary>
+		/// 
+		/// </summary>
 		public int numChildren
 		{
 			get { return _children.Count; }
 		}
 
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="child"></param>
+		/// <returns></returns>
 		public DisplayObject AddChild(DisplayObject child)
 		{
 			AddChildAt(child, _children.Count);
 			return child;
 		}
 
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="child"></param>
+		/// <param name="index"></param>
+		/// <returns></returns>
 		public DisplayObject AddChildAt(DisplayObject child, int index)
 		{
 			int count = _children.Count;
@@ -136,16 +157,31 @@ namespace FairyGUI
 			}
 		}
 
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="child"></param>
+		/// <returns></returns>
 		public bool Contains(DisplayObject child)
 		{
 			return _children.Contains(child);
 		}
 
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="index"></param>
+		/// <returns></returns>
 		public DisplayObject GetChildAt(int index)
 		{
 			return _children[index];
 		}
 
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="name"></param>
+		/// <returns></returns>
 		public DisplayObject GetChild(string name)
 		{
 			int cnt = _children.Count;
@@ -158,16 +194,32 @@ namespace FairyGUI
 			return null;
 		}
 
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="child"></param>
+		/// <returns></returns>
 		public int GetChildIndex(DisplayObject child)
 		{
 			return _children.IndexOf(child);
 		}
 
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="child"></param>
+		/// <returns></returns>
 		public DisplayObject RemoveChild(DisplayObject child)
 		{
 			return RemoveChild(child, false);
 		}
 
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="child"></param>
+		/// <param name="dispose"></param>
+		/// <returns></returns>
 		public DisplayObject RemoveChild(DisplayObject child, bool dispose)
 		{
 			if (child.parent != this)
@@ -180,11 +232,22 @@ namespace FairyGUI
 				return null;
 		}
 
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="index"></param>
+		/// <returns></returns>
 		public DisplayObject RemoveChildAt(int index)
 		{
 			return RemoveChildAt(index, false);
 		}
 
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="index"></param>
+		/// <param name="dispose"></param>
+		/// <returns></returns>
 		public DisplayObject RemoveChildAt(int index, bool dispose)
 		{
 			if (index >= 0 && index < _children.Count)
@@ -213,11 +276,20 @@ namespace FairyGUI
 				throw new Exception("Invalid child index");
 		}
 
+		/// <summary>
+		/// 
+		/// </summary>
 		public void RemoveChildren()
 		{
 			RemoveChildren(0, int.MaxValue, false);
 		}
 
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="beginIndex"></param>
+		/// <param name="endIndex"></param>
+		/// <param name="dispose"></param>
 		public void RemoveChildren(int beginIndex, int endIndex, bool dispose)
 		{
 			if (endIndex < 0 || endIndex >= numChildren)
@@ -227,6 +299,11 @@ namespace FairyGUI
 				RemoveChildAt(beginIndex, dispose);
 		}
 
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="child"></param>
+		/// <param name="index"></param>
 		public void SetChildIndex(DisplayObject child, int index)
 		{
 			int oldIndex = _children.IndexOf(child);
@@ -240,6 +317,11 @@ namespace FairyGUI
 			InvalidateBatchingState(true);
 		}
 
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="child1"></param>
+		/// <param name="child2"></param>
 		public void SwapChildren(DisplayObject child1, DisplayObject child2)
 		{
 			int index1 = _children.IndexOf(child1);
@@ -249,6 +331,11 @@ namespace FairyGUI
 			SwapChildrenAt(index1, index2);
 		}
 
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="index1"></param>
+		/// <param name="index2"></param>
 		public void SwapChildrenAt(int index1, int index2)
 		{
 			DisplayObject obj1 = _children[index1];
@@ -258,6 +345,11 @@ namespace FairyGUI
 			InvalidateBatchingState(true);
 		}
 
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="indice"></param>
+		/// <param name="objs"></param>
 		public void ChangeChildrenOrder(List<int> indice, List<DisplayObject> objs)
 		{
 			int cnt = indice.Count;
@@ -272,26 +364,41 @@ namespace FairyGUI
 			InvalidateBatchingState(true);
 		}
 
+		/// <summary>
+		/// 
+		/// </summary>
 		public Rect? clipRect
 		{
 			get { return _clipRect; }
 			set
 			{
-				_clipRect = value;
-				UpdateBatchingFlags();
+				if (_clipRect != value)
+				{
+					_clipRect = value;
+					UpdateBatchingFlags();
+				}
 			}
 		}
 
+		/// <summary>
+		/// 
+		/// </summary>
 		public DisplayObject mask
 		{
 			get { return _mask; }
 			set
 			{
-				_mask = value;
-				UpdateBatchingFlags();
+				if (_mask != value)
+				{
+					_mask = value;
+					UpdateBatchingFlags();
+				}
 			}
 		}
 
+		/// <summary>
+		/// 
+		/// </summary>
 		override public bool touchable
 		{
 			get { return base.touchable; }
@@ -303,6 +410,9 @@ namespace FairyGUI
 			}
 		}
 
+		/// <summary>
+		/// 
+		/// </summary>
 		public Rect contentRect
 		{
 			get { return _contentRect; }
@@ -473,6 +583,11 @@ namespace FairyGUI
 			return target;
 		}
 
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="obj"></param>
+		/// <returns></returns>
 		public bool IsAncestorOf(DisplayObject obj)
 		{
 			if (obj == null)
@@ -489,13 +604,19 @@ namespace FairyGUI
 			return false;
 		}
 
+		/// <summary>
+		/// 
+		/// </summary>
 		public bool fairyBatching
 		{
 			get { return _fBatching; }
 			set
 			{
-				_fBatching = value;
-				UpdateBatchingFlags();
+				if (_fBatching != value)
+				{
+					_fBatching = value;
+					UpdateBatchingFlags();
+				}
 			}
 		}
 
@@ -514,6 +635,10 @@ namespace FairyGUI
 			}
 		}
 
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="childrenChanged"></param>
 		public void InvalidateBatchingState(bool childrenChanged)
 		{
 			if (childrenChanged && _fBatchingRoot)
@@ -534,6 +659,10 @@ namespace FairyGUI
 			}
 		}
 
+		/// <summary>
+		/// s
+		/// </summary>
+		/// <param name="value"></param>
 		public void SetChildrenLayer(int value)
 		{
 			int cnt = _children.Count;
@@ -546,33 +675,10 @@ namespace FairyGUI
 			}
 		}
 
-		override protected void UpdateHierarchy()
-		{
-			if (_ownsGameObject)
-				base.UpdateHierarchy();
-			else if (gameObject != null)
-			{
-				//we dont change transform parent of this object
-				if (parent != null && visible)
-					gameObject.SetActive(true);
-				else
-					gameObject.SetActive(false);
-			}
-		}
-
-		override protected void DestroyGameObject()
-		{
-			if (_ownsGameObject)
-				base.DestroyGameObject();
-		}
-
 		override public void Update(UpdateContext context)
 		{
 			if (_disabled)
 				return;
-
-			if (onUpdate != null)
-				onUpdate();
 
 			base.Update(context);
 
@@ -642,6 +748,9 @@ namespace FairyGUI
 
 			if (_paintingMode > 0 && paintingGraphics.texture != null)
 				UpdateContext.OnEnd += _captureDelegate;
+
+			if (onUpdate != null)
+				onUpdate();
 		}
 
 		private void SetRenderingOrder(UpdateContext context)

@@ -33,8 +33,8 @@ Learn
 
 - 下载FairyGUI编辑器。  
 - 下载Examples工程，浏览一遍FairyGUI的例子。  
-- 解压Exampples工程UIProject目录下的UIProject.zip，使用FairyGUI编辑器打开，结合例子浏览一遍UI工程。  
-- 观看视频教程：[FairyGUI游戏UI开发基础](http://www.youkexueyuan.com/course_show/1216.html)  
+- 解压Examples工程UIProject目录下的UIProject.zip，使用FairyGUI编辑器打开，结合例子浏览一遍UI工程。  
+- 观看视频教程：[FairyGUI游戏UI开发基础](http://www.taikr.com/course/446)  
 - 阅读文字教程：[FairyGUI教程](http://www.fairygui.com/tutorial)  
 - 进群与小伙伴一起交流：434866637  
 
@@ -46,11 +46,23 @@ MIT 你可以自由使用FairyGUI在你的商业和非商业项目。
 
  Version History
 ====
+1.6.0
+- NEW: Add ScrollPane.onPullDownRelease/ScrollPane.onPullUpRelease event.
+- NEW: UIPackage.CreateObjectAsync for creating object asynchronously.
+- NEW: Support GLabel input options.
+- NEW: Add GearText and GearIcon.
+- IMPROVE: Optimize speed and GC usage of UI construction.
+- IMPROVE: Refactor TextField. Added InputTextField.
+- IMPROVE: Add BlendMode.Off, Remove Image(Opaque) Shader.
+- FIXED: Fixed wrong caret position bug of input text.
+- FIXED: Call InvalidateBatchingState on progress changing of ProgressBar/Slider.
+- FIXED: Pixel snapping bug in relation system.
+
 1.5.3
 - FIXED: A Bug in multi-language file parsing.
 - FIXED: Failed to change scroll positions in onScroll event handler.
-- IMPORVE: Tween effects now available for virtual lists.
-- IMPORVE: Access input event is allowed in onItemClick event handler.
+- IMPROVE: Tween effects now available for virtual lists.
+- IMPROVE: Access input event is allowed in onItemClick event handler.
 
 1.5.2
 - IMPROVE: Optimize fairy batching.
@@ -131,11 +143,11 @@ MIT 你可以自由使用FairyGUI在你的商业和非商业项目。
 - IMPROVE: Refactor shaders.
 - IMPROVE: Refactor some classes.
 - REMOVE: StageNode. Use UIPanel instead.
-- REMOVE: Stage prefab is removed, you dont need to put this into scene now.
+- REMOVE: Stage prefab is removed, you don't need to put this into scene now.
 
 1.1.0
 - NEW: Added virtual list and loop list support. See GList.SetVirutal/GList.SetVirtualAndLoop
-- NEW: Added StageNode. For displaying UI in perspetive camera.
+- NEW: Added StageNode. For displaying UI in perspective camera.
 - NEW: Added GObject.SetPivotByRatio.
 - FIX: GTextField.maxLength now working correctly.
 - REMOVE: MiniStage. Use StageNode instead.
@@ -155,7 +167,7 @@ MIT 你可以自由使用FairyGUI在你的商业和非商业项目。
 - FIX: Change to create MobileInputAdapter statically to avoid il2cpp problem.
 
 1.0.1
-- NEW: Added EventBrige to improve Event system.
+- NEW: Added EventBridge to improve Event system.
 - NEW: Added Container.touchChildren. 
 - FIX: RenderingOrder will now handle properly when display list changing frequently.
 - FIX: Use GRoot.scaleX/Y for content scaling, removed the redundant code.

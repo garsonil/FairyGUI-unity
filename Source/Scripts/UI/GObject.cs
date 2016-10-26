@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System.Collections.Generic;
+using UnityEngine;
 using FairyGUI.Utils;
 using DG.Tweening;
 
@@ -68,26 +69,6 @@ namespace FairyGUI
 		public DisplayObject displayObject { get; protected set; }
 
 		/// <summary>
-		/// Gear to display controller.
-		/// </summary>
-		public GearDisplay gearDisplay { get; private set; }
-
-		/// <summary>
-		/// Gear to xy controller.
-		/// </summary>
-		public GearXY gearXY { get; private set; }
-
-		/// <summary>
-		/// Gear to size controller.
-		/// </summary>
-		public GearSize gearSize { get; private set; }
-
-		/// <summary>
-		/// Gear to look controller.
-		/// </summary>
-		public GearLook gearLook { get; private set; }
-
-		/// <summary>
 		/// Dispatched when the object or its child was clicked.
 		/// </summary>
 		public EventListener onClick { get; private set; }
@@ -153,9 +134,24 @@ namespace FairyGUI
 		public EventListener onDragStart { get; private set; }
 
 		/// <summary>
+		/// Dispatched when dragging.
+		/// </summary>
+		public EventListener onDragMove { get; private set; }
+
+		/// <summary>
 		/// Dispatched when drag end.
 		/// </summary>
 		public EventListener onDragEnd { get; private set; }
+
+		/// <summary>
+		/// 
+		/// </summary>
+		public EventListener OnGearStop { get; private set; }
+
+		/// <summary>
+		/// 当前全局正在被拖动的对象
+		/// </summary>
+		public static GObject draggingObject { get; private set; }
 
 		float _x;
 		float _y;
@@ -181,12 +177,13 @@ namespace FairyGUI
 		string _tooltips;
 		bool _pixelSnapping;
 
+		GearBase[] _gears;
+
 		//Size的实现方式，有两种，0-GObject的w/h等于DisplayObject的w/h。1-GObject的sourceWidth/sourceHeight等于DisplayObject的w/h，剩余部分由scale实现
 		protected int _sizeImplType;
 
-		internal PackageItem _packageItem;
+		internal PackageItem packageItem;
 		internal protected bool underConstruct;
-		internal XML constructingData;
 		internal float _rawWidth;
 		internal float _rawHeight;
 		internal bool _gearLocked;
@@ -209,11 +206,7 @@ namespace FairyGUI
 			CreateDisplayObject();
 
 			relations = new Relations(this);
-
-			gearDisplay = new GearDisplay(this);
-			gearXY = new GearXY(this);
-			gearSize = new GearSize(this);
-			gearLook = new GearLook(this);
+			_gears = new GearBase[8];
 
 			onClick = new EventListener(this, "onClick");
 			onRightClick = new EventListener(this, "onRightClick");
@@ -229,7 +222,10 @@ namespace FairyGUI
 			onPositionChanged = new EventListener(this, "onPositionChanged");
 			onSizeChanged = new EventListener(this, "onSizeChanged");
 			onDragStart = new EventListener(this, "onDragStart");
+			onDragMove = new EventListener(this, "onDragMove");
 			onDragEnd = new EventListener(this, "onDragEnd");
+
+			OnGearStop = new EventListener(this, "OnGearStop");
 		}
 
 		/// <summary>
@@ -317,14 +313,16 @@ namespace FairyGUI
 				if (this is GGroup)
 					((GGroup)this).MoveChildren(dx, dy);
 
-				if (gearXY.controller != null)
-					gearXY.UpdateState();
+				UpdateGear(1);
 
 				if (parent != null && !(parent is GList))
 				{
 					parent.SetBoundsChangedFlag();
 					onPositionChanged.Call();
 				}
+
+				if (draggingObject == this && !sUpdateInDragging)
+					sGlobalRect = this.LocalToGlobal(new Rect(0, 0, this.width, this.height));
 			}
 		}
 
@@ -467,8 +465,7 @@ namespace FairyGUI
 						this.HandlePositionChanged();
 				}
 
-				if (gearSize.controller != null)
-					gearSize.UpdateState();
+				UpdateGear(2);
 
 				if (parent != null)
 				{
@@ -538,8 +535,7 @@ namespace FairyGUI
 				_scaleY = hv;
 				HandleScaleChanged();
 
-				if (gearSize.controller != null)
-					gearSize.UpdateState();
+				UpdateGear(2);
 			}
 		}
 
@@ -658,9 +654,7 @@ namespace FairyGUI
 				{
 					_grayed = value;
 					HandleGrayedChanged();
-
-					if (gearLook.controller != null)
-						gearLook.UpdateState();
+					UpdateGear(3);
 				}
 			}
 		}
@@ -695,9 +689,7 @@ namespace FairyGUI
 				_rotation = value;
 				if (displayObject != null)
 					displayObject.rotation = _rotation;
-
-				if (gearLook.controller != null)
-					gearLook.UpdateState();
+				UpdateGear(3);
 			}
 		}
 
@@ -757,9 +749,7 @@ namespace FairyGUI
 		{
 			if (displayObject != null)
 				displayObject.alpha = _alpha;
-
-			if (gearLook.controller != null)
-				gearLook.UpdateState();
+			UpdateGear(3);
 		}
 
 		/// <summary>
@@ -780,7 +770,10 @@ namespace FairyGUI
 					if (displayObject != null)
 						displayObject.visible = _visible;
 					if (parent != null)
+					{
 						parent.ChildStateChanged(this);
+						parent.SetBoundsChangedFlag();
+					}
 				}
 			}
 		}
@@ -938,11 +931,95 @@ namespace FairyGUI
 		{
 			get
 			{
-				if (_packageItem != null)
-					return UIPackage.URL_PREFIX + _packageItem.owner.id + _packageItem.id;
+				if (packageItem != null)
+					return UIPackage.URL_PREFIX + packageItem.owner.id + packageItem.id;
 				else
 					return null;
 			}
+		}
+
+		/// <summary>
+		/// Gear to xy controller.
+		/// </summary>
+		public GearXY gearXY
+		{
+			get
+			{
+				return (GearXY)GetGear(1);
+			}
+		}
+
+		/// <summary>
+		/// Gear to size controller.
+		/// </summary>
+		public GearSize gearSize
+		{
+			get
+			{
+				return (GearSize)GetGear(2);
+			}
+		}
+
+		/// <summary>
+		/// Gear to look controller.
+		/// </summary>
+		public GearLook gearLook
+		{
+			get
+			{
+				return (GearLook)GetGear(3);
+			}
+		}
+
+		public GearBase GetGear(int index)
+		{
+			GearBase gear = _gears[index];
+			if (gear == null)
+			{
+				switch (index)
+				{
+					case 0:
+						gear = new GearDisplay(this);
+						break;
+					case 1:
+						gear = new GearXY(this);
+						break;
+					case 2:
+						gear = new GearSize(this);
+						break;
+					case 3:
+						gear = new GearLook(this);
+						break;
+					case 4:
+						gear = new GearColor(this);
+						break;
+					case 5:
+						gear = new GearAnimation(this);
+						break;
+					case 6:
+						gear = new GearText(this);
+						break;
+					case 7:
+						gear = new GearIcon(this);
+						break;
+					default:
+						throw new System.Exception("FairyGUI: invalid gear index!");
+				}
+				_gears[index] = gear;
+			}
+			return gear;
+		}
+
+		protected void UpdateGear(int index)
+		{
+			if (_gears[index] != null)
+				_gears[index].UpdateState();
+		}
+
+		internal void UpdateGearFromRelations(int index, float dx, float dy)
+		{
+			if (_gears[index] != null)
+				_gears[index].UpdateFromRelations(dx, dy);
 		}
 
 		/// <summary>
@@ -958,14 +1035,12 @@ namespace FairyGUI
 
 		virtual public void HandleControllerChanged(Controller c)
 		{
-			if (gearDisplay.controller == c)
-				gearDisplay.Apply();
-			if (gearXY.controller == c)
-				gearXY.Apply();
-			if (gearSize.controller == c)
-				gearSize.Apply();
-			if (gearLook.controller == c)
-				gearLook.Apply();
+			for (int i = 0; i < 8; i++)
+			{
+				GearBase gear = _gears[i];
+				if (gear != null && gear.controller == c)
+					gear.Apply();
+			}
 		}
 
 		/// <summary>
@@ -1015,16 +1090,20 @@ namespace FairyGUI
 		{
 			get
 			{
-				if (this is GRoot)
-					return (GRoot)this;
-
-				GObject p = parent;
-				while (p != null)
-				{
-					if (p is GRoot)
-						return (GRoot)p;
+				GObject p = this;
+				while (p.parent != null)
 					p = p.parent;
+
+				if (p is GRoot)
+					return (GRoot)p;
+
+				if (p.displayObject != null && p.displayObject.parent != null)
+				{
+					DisplayObject d = p.displayObject.parent.GetChild("GRoot");
+					if (d != null && (d.gOwner is GRoot))
+						return (GRoot)d.gOwner;
 				}
+
 				return GRoot.inst;
 			}
 		}
@@ -1033,6 +1112,15 @@ namespace FairyGUI
 		/// 
 		/// </summary>
 		virtual public string text
+		{
+			get { return null; }
+			set { /*override in child*/}
+		}
+
+		/// <summary>
+		/// 
+		/// </summary>
+		virtual public string icon
 		{
 			get { return null; }
 			set { /*override in child*/}
@@ -1087,7 +1175,7 @@ namespace FairyGUI
 		/// </summary>
 		public bool dragging
 		{
-			get { return sDragging == this; }
+			get { return draggingObject == this; }
 		}
 
 		/// <summary>
@@ -1097,6 +1185,11 @@ namespace FairyGUI
 		/// <returns></returns>
 		public Vector2 LocalToGlobal(Vector2 pt)
 		{
+			if (_pivotAsAnchor)
+			{
+				pt.x += _width * _pivotX;
+				pt.y += _height * _pivotY;
+			}
 			return displayObject.LocalToGlobal(pt);
 		}
 
@@ -1107,7 +1200,13 @@ namespace FairyGUI
 		/// <returns></returns>
 		public Vector2 GlobalToLocal(Vector2 pt)
 		{
-			return displayObject.GlobalToLocal(pt);
+			pt = displayObject.GlobalToLocal(pt);
+			if (_pivotAsAnchor)
+			{
+				pt.x -= _width * _pivotX;
+				pt.y -= _height * _pivotY;
+			}
+			return pt;
 		}
 
 		/// <summary>
@@ -1152,7 +1251,7 @@ namespace FairyGUI
 		/// <returns></returns>
 		public Vector2 LocalToRoot(Vector2 pt, GRoot r)
 		{
-			pt = displayObject.LocalToGlobal(pt);
+			pt = LocalToGlobal(pt);
 			if (r == null || r == GRoot.inst)
 			{
 				//fast
@@ -1181,7 +1280,7 @@ namespace FairyGUI
 			}
 			else
 				pt = r.LocalToGlobal(pt);
-			return displayObject.GlobalToLocal(pt);
+			return GlobalToLocal(pt);
 		}
 
 		/// <summary>
@@ -1205,7 +1304,7 @@ namespace FairyGUI
 			Vector3 v = camera.WorldToScreenPoint(pt);
 			v.y = Screen.height - v.y;
 			v.z = 0;
-			return displayObject.GlobalToLocal(v);
+			return GlobalToLocal(v);
 		}
 
 		/// <summary>
@@ -1214,9 +1313,14 @@ namespace FairyGUI
 		/// <param name="point"></param>
 		/// <param name="targetSpace"></param>
 		/// <returns></returns>
-		public Vector2 TransformPoint(Vector2 point, GObject targetSpace)
+		public Vector2 TransformPoint(Vector2 pt, GObject targetSpace)
 		{
-			return this.displayObject.TransformPoint(point, targetSpace.displayObject);
+			if (_pivotAsAnchor)
+			{
+				pt.x += _width * _pivotX;
+				pt.y += _height * _pivotY;
+			}
+			return this.displayObject.TransformPoint(pt, targetSpace.displayObject);
 		}
 
 		/// <summary>
@@ -1227,6 +1331,11 @@ namespace FairyGUI
 		/// <returns></returns>
 		public Rect TransformRect(Rect rect, GObject targetSpace)
 		{
+			if (_pivotAsAnchor)
+			{
+				rect.x += _width * _pivotX;
+				rect.y += _height * _pivotY;
+			}
 			return this.displayObject.TransformRect(rect, targetSpace.displayObject);
 		}
 
@@ -1369,9 +1478,8 @@ namespace FairyGUI
 				displayObject.grayed = _grayed;
 		}
 
-		virtual public void ConstructFromResource(PackageItem pkgItem)
+		virtual public void ConstructFromResource()
 		{
-			_packageItem = pkgItem;
 		}
 
 		virtual public void Setup_BeforeAdd(XML xml)
@@ -1400,7 +1508,7 @@ namespace FairyGUI
 
 			arr = xml.GetAttributeArray("skew");
 			if (arr != null)
-				this.skew = new Vector2(int.Parse(arr[0]), int.Parse(arr[1]));
+				this.skew = new Vector2(float.Parse(arr[0]), float.Parse(arr[1]));
 
 			str = xml.GetAttribute("rotation");
 			if (str != null)
@@ -1465,39 +1573,44 @@ namespace FairyGUI
 				this.tooltips = str;
 		}
 
+		static Dictionary<string, int> GearXMLKeys = new Dictionary<string, int>()
+		{
+			{"gearDisplay",0},
+			{"gearXY",1},
+			{"gearSize",2},
+			{"gearLook",3},
+			{"gearColor",4},
+			{"gearAni",5},
+			{"gearText",6},
+			{"gearIcon",7}
+		};
+
 		virtual public void Setup_AfterAdd(XML xml)
 		{
-			XML cxml = null;
 			string str;
 
 			str = xml.GetAttribute("group");
 			if (str != null)
 				group = parent.GetChildById(str) as GGroup;
 
-			cxml = xml.GetNode("gearDisplay");
-			if (cxml != null)
-				gearDisplay.Setup(cxml);
-
-			cxml = xml.GetNode("gearXY");
-			if (cxml != null)
-				gearXY.Setup(cxml);
-
-			cxml = xml.GetNode("gearSize");
-			if (cxml != null)
-				gearSize.Setup(cxml);
-
-			cxml = xml.GetNode("gearLook");
-			if (cxml != null)
-				gearLook.Setup(cxml);
+			XMLList.Enumerator et = xml.GetEnumerator();
+			XML cxml;
+			int index;
+			while (et.MoveNext())
+			{
+				cxml = et.Current;
+				if (GearXMLKeys.TryGetValue(cxml.name, out index))
+					GetGear(index).Setup(cxml);
+			}
 		}
 
 		#region Drag support
 		int _dragTouchId;
 		Vector2 _dragTouchStartPos;
 
-		static GObject sDragging;
 		static Vector2 sGlobalDragStart = new Vector2();
 		static Rect sGlobalRect = new Rect();
+		static bool sUpdateInDragging = false;
 
 		private void InitDrag()
 		{
@@ -1509,25 +1622,28 @@ namespace FairyGUI
 
 		private void DragBegin(int touchId)
 		{
-			if (sDragging != null)
-				sDragging.StopDrag();
+			if (draggingObject != null)
+			{
+				draggingObject.StopDrag();
+				draggingObject = null;
+			}
 
 			_dragTouchId = touchId;
 			sGlobalDragStart = Stage.inst.GetTouchPosition(touchId);
 			sGlobalRect = this.LocalToGlobal(new Rect(0, 0, this.width, this.height));
 
-			sDragging = this;
+			draggingObject = this;
 			Stage.inst.onTouchEnd.Add(__touchEnd2);
 			Stage.inst.onTouchMove.Add(__touchMove2);
 		}
 
 		private void DragEnd()
 		{
-			if (sDragging == this)
+			if (draggingObject == this)
 			{
 				Stage.inst.onTouchEnd.Remove(__touchEnd2);
 				Stage.inst.onTouchMove.Remove(__touchMove2);
-				sDragging = null;
+				draggingObject = null;
 			}
 		}
 
@@ -1572,6 +1688,9 @@ namespace FairyGUI
 
 			Reset();
 
+			if (displayObject == null || displayObject.isDisposed)
+				return;
+
 			if (!onDragStart.Call(_dragTouchId))
 				DragBegin(evt.touchId);
 		}
@@ -1582,9 +1701,13 @@ namespace FairyGUI
 			if (_dragTouchId != -1 && _dragTouchId != evt.touchId)
 				return;
 
-			if (sDragging == this)
+			if (draggingObject == this)
 			{
 				StopDrag();
+
+				if (displayObject == null || displayObject.isDisposed)
+					return;
+
 				onDragEnd.Call();
 			}
 		}
@@ -1593,6 +1716,9 @@ namespace FairyGUI
 		{
 			InputEvent evt = context.inputEvent;
 			if (_dragTouchId != -1 && _dragTouchId != evt.touchId || this.parent == null)
+				return;
+
+			if (displayObject == null || displayObject.isDisposed)
 				return;
 
 			float xx = evt.x - sGlobalDragStart.x + sGlobalRect.x;
@@ -1624,7 +1750,11 @@ namespace FairyGUI
 			if (float.IsNaN(pt.x))
 				return;
 
+			sUpdateInDragging = true;
 			this.SetXY(Mathf.RoundToInt(pt.x), Mathf.RoundToInt(pt.y));
+			sUpdateInDragging = false;
+
+			onDragMove.Call();
 		}
 		#endregion
 

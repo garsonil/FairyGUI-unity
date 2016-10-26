@@ -24,7 +24,7 @@ namespace FairyGUI
 		/// <summary>
 		/// Content container. If the component is not clipped, then container==rootContainer.
 		/// </summary>
-		public Container container { get; private set; }
+		public Container container { get; protected set; }
 		/// <summary>
 		/// ScrollPane of the component. If the component is not scrollable, the value is null.
 		/// </summary>
@@ -43,6 +43,7 @@ namespace FairyGUI
 		protected Margin _margin;
 		protected bool _trackBounds;
 		protected bool _boundsChanged;
+		internal Vector2 _alignOffset;
 
 		Vector2 _clipSoftness;
 		int _sortingChildCount;
@@ -113,11 +114,8 @@ namespace FairyGUI
 			set
 			{
 				_margin = value;
-				if (rootContainer.clipRect != null)
-				{
-					container.x = _margin.left;
-					container.y = _margin.top;
-				}
+				if (rootContainer.clipRect != null && scrollPane == null) //如果scrollPane不为空，则HandleSizeChanged里面的处理会促使ScrollPane处理
+					container.SetXY(_margin.left + _alignOffset.x, _margin.top + _alignOffset.y);
 				HandleSizeChanged();
 			}
 		}
@@ -531,6 +529,27 @@ namespace FairyGUI
 		}
 
 		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="obj"></param>
+		/// <returns></returns>
+		public bool IsAncestorOf(GObject obj)
+		{
+			if (obj == null)
+				return false;
+
+			GComponent p = obj.parent;
+			while (p != null)
+			{
+				if (p == this)
+					return true;
+
+				p = p.parent;
+			}
+			return false;
+		}
+
+		/// <summary>
 		/// Adds a controller to the container.
 		/// </summary>
 		/// <param name="controller">Controller object</param>
@@ -705,6 +724,9 @@ namespace FairyGUI
 
 		void BuildNativeDisplayList()
 		{
+			if (displayObject == null || displayObject.isDisposed)
+				return;
+
 			int cnt = _children.Count;
 			if (cnt == 0)
 				return;
@@ -858,32 +880,38 @@ namespace FairyGUI
 			ScrollType scroll, ScrollBarDisplayType scrollBarDisplay, int flags,
 			String vtScrollBarRes, String hzScrollBarRes)
 		{
-			container = new Container();
-			rootContainer.AddChild(container);
+			if (rootContainer == container)
+			{
+				container = new Container();
+				rootContainer.AddChild(container);
+			}
 
 			scrollPane = new ScrollPane(this, scroll, scrollBarMargin, scrollBarDisplay, flags, vtScrollBarRes, hzScrollBarRes);
-			UpdateClipRect();
-			SetBoundsChangedFlag();
 		}
 
 		protected void SetupOverflow(OverflowType overflow)
 		{
 			if (overflow == OverflowType.Hidden)
 			{
-				container = new Container();
-				rootContainer.AddChild(container);
+				if (rootContainer == container)
+				{
+					container = new Container();
+					rootContainer.AddChild(container);
+				}
+
 				UpdateClipRect();
 				container.SetXY(_margin.left, _margin.top);
 			}
 			else if (_margin.left != 0 || _margin.top != 0)
 			{
-				container = new Container();
-				rootContainer.AddChild(container);
+				if (rootContainer == container)
+				{
+					container = new Container();
+					rootContainer.AddChild(container);
+				}
 
 				container.SetXY(_margin.left, _margin.top);
 			}
-
-			SetBoundsChangedFlag();
 		}
 
 		void UpdateClipRect()
@@ -1136,16 +1164,15 @@ namespace FairyGUI
 				UpdateBounds();
 		}
 
-		override public void ConstructFromResource(PackageItem pkgItem)
+		override public void ConstructFromResource()
 		{
-			_packageItem = pkgItem;
-			_packageItem.Load();
-
-			ConstructFromXML(_packageItem.componentData);
+			ConstructFromResource(null, 0);
 		}
 
-		virtual public void ConstructFromXML(XML xml)
+		internal void ConstructFromResource(List<GObject> objectPool, int poolIndex)
 		{
+			XML xml = packageItem.componentData;
+
 			string str;
 			string[] arr;
 
@@ -1171,7 +1198,7 @@ namespace FairyGUI
 			arr = xml.GetAttributeArray("hitTest");
 			if (arr != null)
 			{
-				PixelHitTestData hitTestData = _packageItem.owner.GetPixelHitTestData(arr[0]);
+				PixelHitTestData hitTestData = packageItem.owner.GetPixelHitTestData(arr[0]);
 				if (hitTestData != null)
 					this.rootContainer.hitArea = new PixelHitTest(hitTestData, int.Parse(arr[1]), int.Parse(arr[2]));
 			}
@@ -1230,59 +1257,67 @@ namespace FairyGUI
 
 			_buildingDisplayList = true;
 
-			XMLList col = xml.Elements("controller");
+			XMLList.Enumerator et = xml.GetEnumerator("controller");
 			Controller controller;
-			foreach (XML cxml in col)
+			while (et.MoveNext())
 			{
 				controller = new Controller();
 				_controllers.Add(controller);
 				controller.parent = this;
-				controller.Setup(cxml);
+				controller.Setup(et.Current);
 			}
 
-			XML listNode = xml.GetNode("displayList");
-			if (listNode != null)
+			GObject child;
+
+			DisplayListItem[] displayList = packageItem.displayList;
+			int childCount = displayList.Length;
+			for (int i = 0; i < childCount; i++)
 			{
-				col = listNode.Elements();
-				GObject u;
-				foreach (XML cxml in col)
+				DisplayListItem di = displayList[i];
+				if (objectPool != null)
 				{
-					u = ConstructChild(cxml);
-					if (u == null)
-						continue;
-
-					u.underConstruct = true;
-					u.constructingData = cxml;
-					u.Setup_BeforeAdd(cxml);
-					AddChild(u);
+					child = objectPool[poolIndex + i];
 				}
+				else
+				{
+					if (di.packageItem != null)
+					{
+						di.packageItem.Load();
+						child = UIObjectFactory.NewObject(di.packageItem);
+						child.packageItem = di.packageItem;
+						child.ConstructFromResource();
+					}
+					else
+						child = UIObjectFactory.NewObject(di.type);
+				}
+
+				child.underConstruct = true;
+				child.Setup_BeforeAdd(di.desc);
+				child.parent = this;
+				_children.Add(child);
 			}
+
 			this.relations.Setup(xml);
 
-			int cnt = _children.Count;
-			for (int i = 0; i < cnt; i++)
-			{
-				GObject u = _children[i];
-				u.relations.Setup(u.constructingData);
-			}
+			for (int i = 0; i < childCount; i++)
+				_children[i].relations.Setup(displayList[i].desc);
 
-			for (int i = 0; i < cnt; i++)
+			for (int i = 0; i < childCount; i++)
 			{
-				GObject u = _children[i];
-				u.Setup_AfterAdd(u.constructingData);
-				u.underConstruct = false;
-				u.constructingData = null;
+				child = _children[i];
+				child.Setup_AfterAdd(displayList[i].desc);
+				child.underConstruct = false;
 			}
 
 			str = xml.GetAttribute("mask");
 			if (str != null)
 				this.mask = GetChildById(str).displayObject;
 
-			XMLList transCol = xml.Elements("transition");
-			foreach (XML cxml in transCol)
+			et = xml.GetEnumerator("transition");
+			while (et.MoveNext())
 			{
 				Transition trans = new Transition(this);
-				trans.Setup(cxml);
+				trans.Setup(et.Current);
 				_transitions.Add(trans);
 			}
 
@@ -1298,6 +1333,17 @@ namespace FairyGUI
 			underConstruct = false;
 
 			BuildNativeDisplayList();
+			SetBoundsChangedFlag();
+
+			ConstructFromXML(xml);
+		}
+
+		/// <summary>
+		/// Method for extensions to override
+		/// </summary>
+		/// <param name="xml"></param>
+		virtual public void ConstructFromXML(XML xml)
+		{
 		}
 
 		void __addedToStage()
@@ -1319,33 +1365,6 @@ namespace FairyGUI
 				Transition trans = _transitions[i];
 				trans.Stop(false, true);
 			}
-		}
-
-		private GObject ConstructChild(XML xml)
-		{
-			string pkgId = xml.GetAttribute("pkg");
-			UIPackage thisPkg = _packageItem.owner;
-			UIPackage pkg;
-			if (pkgId != null && pkgId != thisPkg.id)
-				pkg = UIPackage.GetById(pkgId);
-			else
-				pkg = thisPkg;
-
-			if (pkg != null)
-			{
-				string src = xml.GetAttribute("src");
-				if (src != null)
-				{
-					PackageItem pi = pkg.GetItem(src);
-					if (pi != null)
-						return pkg.CreateObject(pi, null);
-				}
-			}
-
-			if (xml.name == "text" && xml.GetAttributeBool("input", false))
-				return new GTextInput();
-			else
-				return UIObjectFactory.NewObject(xml.name);
 		}
 	}
 }

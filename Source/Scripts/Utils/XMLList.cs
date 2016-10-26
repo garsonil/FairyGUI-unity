@@ -6,61 +6,63 @@ namespace FairyGUI.Utils
 	/// <summary>
 	/// 
 	/// </summary>
-	public class XMLList : IEnumerable<XML>
+	public class XMLList
 	{
-		List<XML> _list;
+		public List<XML> rawList;
 
-		internal XMLList()
+		public XMLList()
 		{
-			_list = new List<XML>();
+			rawList = new List<XML>();
 		}
 
-		internal XMLList(List<XML> list)
+		public XMLList(List<XML> list)
 		{
-			_list = list;
+			rawList = list;
+		}
+
+		public void Add(XML xml)
+		{
+			rawList.Add(xml);
+		}
+
+		public void Clear()
+		{
+			rawList.Clear();
 		}
 
 		public int Count
 		{
-			get { return _list.Count; }
+			get { return rawList.Count; }
 		}
 
 		public XML this[int index]
 		{
-			get { return _list[index]; }
+			get { return rawList[index]; }
 		}
 
-		public IEnumerator<XML> GetEnumerator()
+		public Enumerator GetEnumerator()
 		{
-			return _list.GetEnumerator();
+			return new Enumerator(rawList, null);
 		}
 
-		System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
+		public Enumerator GetEnumerator(string selector)
 		{
-			throw new NotImplementedException();
-		}
-
-		internal void Add(XML xml)
-		{
-			_list.Add(xml);
-		}
-
-		internal void Clear()
-		{
-			_list.Clear();
+			return new Enumerator(rawList, selector);
 		}
 
 		static List<XML> _tmpList = new List<XML>();
-		internal XMLList Filter(string selector)
+		public XMLList Filter(string selector)
 		{
 			bool allFit = true;
 			_tmpList.Clear();
-			foreach (XML xml in _list)
+			int cnt = rawList.Count;
+			for (int i = 0; i < cnt; i++)
 			{
-				if (xml.name != selector)
-					allFit = false;
-				else
+				XML xml = rawList[i];
+				if (xml.name == selector)
 					_tmpList.Add(xml);
+				else
+					allFit = false;
 			}
 
 			if (allFit)
@@ -73,14 +75,59 @@ namespace FairyGUI.Utils
 			}
 		}
 
-		internal XML Find(string selector)
+		public XML Find(string selector)
 		{
-			foreach (XML xml in _list)
+			int cnt = rawList.Count;
+			for (int i = 0; i < cnt; i++)
 			{
+				XML xml = rawList[i];
 				if (xml.name == selector)
 					return xml;
 			}
 			return null;
+		}
+
+		public struct Enumerator
+		{
+			List<XML> _source;
+			string _selector;
+			int _index;
+			int _total;
+			XML _current;
+
+			public Enumerator(List<XML> source, string selector)
+			{
+				_source = source;
+				_selector = selector;
+				_index = -1;
+				if (_source != null)
+					_total = _source.Count;
+				else
+					_total = 0;
+				_current = null;
+			}
+
+			public XML Current
+			{
+				get { return _current; }
+			}
+
+			public bool MoveNext()
+			{
+				while (++_index < _total)
+				{
+					_current = _source[_index];
+					if (_selector == null || _current.name == _selector)
+						return true;
+				}
+
+				return false;
+			}
+
+			public void Reset()
+			{
+				_index = -1;
+			}
 		}
 	}
 }

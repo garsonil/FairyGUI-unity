@@ -13,24 +13,11 @@ namespace FairyGUI
 		/// </summary>
 		public EventListener onPlayEnd { get; private set; }
 
-		/// <summary>
-		/// 
-		/// </summary>
-		public GearAnimation gearAnimation { get; private set; }
-
-		/// <summary>
-		/// 
-		/// </summary>
-		public GearColor gearColor { get; private set; }
-
 		MovieClip _content;
 
 		public GMovieClip()
 		{
 			_sizeImplType = 1;
-
-			gearAnimation = new GearAnimation(this);
-			gearColor = new GearColor(this);
 
 			onPlayEnd = new EventListener(this, "onPlayEnd");
 		}
@@ -51,12 +38,8 @@ namespace FairyGUI
 			get { return _content.playing; }
 			set
 			{
-				if (_content.playing != value)
-				{
-					_content.playing = value;
-					if (gearAnimation.controller != null)
-						gearAnimation.UpdateState();
-				}
+				_content.playing = value;
+				UpdateGear(5);
 			}
 		}
 
@@ -68,12 +51,8 @@ namespace FairyGUI
 			get { return _content.currentFrame; }
 			set
 			{
-				if (_content.currentFrame != value)
-				{
-					_content.currentFrame = value;
-					if (gearAnimation.controller != null)
-						gearAnimation.UpdateState();
-				}
+				_content.currentFrame = value;
+				UpdateGear(5);
 			}
 		}
 
@@ -86,8 +65,7 @@ namespace FairyGUI
 			set
 			{
 				_content.color = value;
-				if (gearColor.controller != null)
-					gearColor.UpdateState();
+				UpdateGear(4);
 			}
 		}
 
@@ -131,29 +109,17 @@ namespace FairyGUI
 			((MovieClip)displayObject).SetPlaySettings(start, end, times, endAt);
 		}
 
-		override public void HandleControllerChanged(Controller c)
+		override public void ConstructFromResource()
 		{
-			base.HandleControllerChanged(c);
-			if (gearAnimation.controller == c)
-				gearAnimation.Apply();
-			if (gearColor.controller == c)
-				gearColor.Apply();
-		}
-
-		override public void ConstructFromResource(PackageItem pkgItem)
-		{
-			_packageItem = pkgItem;
-
-			sourceWidth = _packageItem.width;
-			sourceHeight = _packageItem.height;
+			sourceWidth = packageItem.width;
+			sourceHeight = packageItem.height;
 			initWidth = sourceWidth;
 			initHeight = sourceHeight;
 
-			_packageItem.Load();
-			_content.interval = _packageItem.interval;
-			_content.swing = _packageItem.swing;
-			_content.repeatDelay = _packageItem.repeatDelay;
-			_content.SetData(_packageItem.texture, _packageItem.frames, new Rect(0, 0, sourceWidth, sourceHeight));
+			_content.interval = packageItem.interval;
+			_content.swing = packageItem.swing;
+			_content.repeatDelay = packageItem.repeatDelay;
+			_content.SetData(packageItem.texture, packageItem.frames, new Rect(0, 0, sourceWidth, sourceHeight));
 
 			SetSize(sourceWidth, sourceHeight);
 		}
@@ -171,24 +137,11 @@ namespace FairyGUI
 
 			str = xml.GetAttribute("color");
 			if (str != null)
-				this.color = ToolSet.ConvertFromHtmlColor(str);
+				_content.color = ToolSet.ConvertFromHtmlColor(str);
 
 			str = xml.GetAttribute("flip");
 			if (str != null)
 				_content.flip = FieldTypes.ParseFlipType(str);
-		}
-
-		override public void Setup_AfterAdd(XML xml)
-		{
-			base.Setup_AfterAdd(xml);
-
-			XML cxml = xml.GetNode("gearAni");
-			if (cxml != null)
-				gearAnimation.Setup(cxml);
-
-			cxml = xml.GetNode("gearColor");
-			if (cxml != null)
-				gearColor.Setup(cxml);
 		}
 	}
 }

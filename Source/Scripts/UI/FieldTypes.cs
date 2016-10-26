@@ -46,7 +46,8 @@ namespace FairyGUI
 	{
 		None,
 		Both,
-		Height
+		Height,
+		Shrink
 	}
 
 	public enum ScrollType
@@ -139,10 +140,11 @@ namespace FairyGUI
 		Color,
 		Animation,
 		Visible,
-		Controller,
 		Sound,
 		Transition,
 		Shake,
+		ColorFilter,
+		Skew,
 		Unknown
 	}
 
@@ -273,6 +275,8 @@ namespace FairyGUI
 					return AutoSizeType.Both;
 				case "height":
 					return AutoSizeType.Height;
+				case "shrink":
+					return AutoSizeType.Shrink;
 				default:
 					return AutoSizeType.None;
 			}
@@ -445,14 +449,16 @@ namespace FairyGUI
 					return TransitionActionType.Animation;
 				case "Visible":
 					return TransitionActionType.Visible;
-				case "Controller":
-					return TransitionActionType.Controller;
 				case "Sound":
 					return TransitionActionType.Sound;
 				case "Transition":
 					return TransitionActionType.Transition;
 				case "Shake":
 					return TransitionActionType.Shake;
+				case "ColorFilter":
+					return TransitionActionType.ColorFilter;
+				case "Skew":
+					return TransitionActionType.Skew;
 				default:
 					return TransitionActionType.Unknown;
 			}

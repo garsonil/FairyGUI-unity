@@ -183,6 +183,22 @@ namespace FairyGUI.Utils
 			return _children.Filter(selector);
 		}
 
+		public XMLList.Enumerator GetEnumerator()
+		{
+			if (_children == null)
+				return new XMLList.Enumerator(null, null);
+			else
+				return new XMLList.Enumerator(_children.rawList, null);
+		}
+
+		public XMLList.Enumerator GetEnumerator(string selector)
+		{
+			if (_children == null)
+				return new XMLList.Enumerator(null, selector);
+			else
+				return new XMLList.Enumerator(_children.rawList, selector);
+		}
+
 		static Stack<XML> sNodeStack = new Stack<XML>();
 		void Parse(string aSource)
 		{

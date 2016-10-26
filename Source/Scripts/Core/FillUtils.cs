@@ -2,6 +2,9 @@
 
 namespace FairyGUI
 {
+	/// <summary>
+	/// 
+	/// </summary>
 	public enum FillMethod
 	{
 		None = 0,
@@ -32,18 +35,27 @@ namespace FairyGUI
 		Radial360 = 5,
 	}
 
+	/// <summary>
+	/// 
+	/// </summary>
 	public enum OriginHorizontal
 	{
 		Left,
 		Right,
 	}
 
+	/// <summary>
+	/// 
+	/// </summary>
 	public enum OriginVertical
 	{
 		Top,
 		Bottom
 	}
 
+	/// <summary>
+	/// 
+	/// </summary>
 	public enum Origin90
 	{
 		TopLeft,
@@ -52,6 +64,9 @@ namespace FairyGUI
 		BottomRight
 	}
 
+	/// <summary>
+	/// 
+	/// </summary>
 	public enum Origin180
 	{
 		Top,
@@ -60,6 +75,9 @@ namespace FairyGUI
 		Right
 	}
 
+	/// <summary>
+	/// 
+	/// </summary>
 	public enum Origin360
 	{
 		Top,
@@ -68,8 +86,20 @@ namespace FairyGUI
 		Right
 	}
 
+	/// <summary>
+	/// 
+	/// </summary>
 	public class FillUtils
 	{
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="origin"></param>
+		/// <param name="amount"></param>
+		/// <param name="vertRect"></param>
+		/// <param name="uvRect"></param>
+		/// <param name="verts"></param>
+		/// <param name="uv"></param>
 		public static void FillHorizontal(OriginHorizontal origin, float amount, Rect vertRect, Rect uvRect, Vector3[] verts, Vector2[] uv)
 		{
 			if (origin == OriginHorizontal.Left)
@@ -89,6 +119,15 @@ namespace FairyGUI
 			NGraphics.FillUVOfQuad(uv, 0, uvRect);
 		}
 
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="origin"></param>
+		/// <param name="amount"></param>
+		/// <param name="vertRect"></param>
+		/// <param name="uvRect"></param>
+		/// <param name="verts"></param>
+		/// <param name="uv"></param>
 		public static void FillVertical(OriginVertical origin, float amount, Rect vertRect, Rect uvRect, Vector3[] verts, Vector2[] uv)
 		{
 			if (origin == OriginVertical.Bottom)
@@ -108,6 +147,16 @@ namespace FairyGUI
 			NGraphics.FillUVOfQuad(uv, 0, uvRect);
 		}
 
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="origin"></param>
+		/// <param name="amount"></param>
+		/// <param name="clockwise"></param>
+		/// <param name="vertRect"></param>
+		/// <param name="uvRect"></param>
+		/// <param name="verts"></param>
+		/// <param name="uv"></param>
 		public static void FillRadial90(Origin90 origin, float amount, bool clockwise, Rect vertRect, Rect uvRect, Vector3[] verts, Vector2[] uv)
 		{
 			NGraphics.FillVertsOfQuad(verts, 0, vertRect);
@@ -302,6 +351,16 @@ namespace FairyGUI
 			}
 		}
 
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="origin"></param>
+		/// <param name="amount"></param>
+		/// <param name="clockwise"></param>
+		/// <param name="vertRect"></param>
+		/// <param name="uvRect"></param>
+		/// <param name="verts"></param>
+		/// <param name="uv"></param>
 		public static void FillRadial180(Origin180 origin, float amount, bool clockwise, Rect vertRect, Rect uvRect, Vector3[] verts, Vector2[] uv)
 		{
 			switch (origin)
@@ -488,6 +547,16 @@ namespace FairyGUI
 			}
 		}
 
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="origin"></param>
+		/// <param name="amount"></param>
+		/// <param name="clockwise"></param>
+		/// <param name="vertRect"></param>
+		/// <param name="uvRect"></param>
+		/// <param name="verts"></param>
+		/// <param name="uv"></param>
 		public static void FillRadial360(Origin360 origin, float amount, bool clockwise, Rect vertRect, Rect uvRect, Vector3[] verts, Vector2[] uv)
 		{
 			switch (origin)

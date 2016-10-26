@@ -11,8 +11,12 @@ namespace FairyGUI
 		int _lineSize;
 		Color _lineColor;
 		Color _fillColor;
+		Color[] _colors;
 		Vector2[] _polygonPoints;
 
+		/// <summary>
+		/// 
+		/// </summary>
 		public Shape()
 		{
 			CreateGameObject("Shape");
@@ -20,49 +24,135 @@ namespace FairyGUI
 			graphics.texture = NTexture.Empty;
 		}
 
+		/// <summary>
+		/// 
+		/// </summary>
 		public bool empty
 		{
 			get { return _type == 0; }
 		}
 
+		/// <summary>
+		/// 
+		/// </summary>
+		public Color color
+		{
+			get { return _fillColor; }
+			set
+			{
+				if (!_fillColor.Equals(value))
+				{
+					_fillColor = value;
+					_requireUpdateMesh = true;
+				}
+			}
+		}
+
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="lineSize"></param>
+		/// <param name="lineColor"></param>
+		/// <param name="fillColor"></param>
 		public void DrawRect(int lineSize, Color lineColor, Color fillColor)
 		{
 			_type = 1;
-			_optimizeNotTouchable = false;
 			_lineSize = lineSize;
 			_lineColor = lineColor;
 			_fillColor = fillColor;
+			_colors = null;
+
+			_touchDisabled = false;
 			_requireUpdateMesh = true;
 		}
 
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="lineSize"></param>
+		/// <param name="colors"></param>
+		public void DrawRect(int lineSize, Color[] colors)
+		{
+			_type = 1;
+			_lineSize = lineSize;
+			_colors = colors;
+
+			_touchDisabled = false;
+			_requireUpdateMesh = true;
+		}
+
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="fillColor"></param>
 		public void DrawEllipse(Color fillColor)
 		{
 			_type = 2;
-			_optimizeNotTouchable = false;
-			_lineSize = 0;
-			_lineColor = Color.clear;
 			_fillColor = fillColor;
+			_colors = null;
+
+			_touchDisabled = false;
 			_requireUpdateMesh = true;
 		}
 
-		public void DrawPolygon(Color fillColor, Vector2[] points)
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="colors"></param>
+		public void DrawEllipse(Color[] colors)
+		{
+			_type = 2;
+			_colors = colors;
+
+			_touchDisabled = false;
+			_requireUpdateMesh = true;
+		}
+
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="points"></param>
+		/// <param name="fillColor"></param>
+		public void DrawPolygon(Vector2[] points, Color fillColor)
 		{
 			_type = 3;
-			_optimizeNotTouchable = false;
-			_lineSize = 0;
-			_lineColor = Color.clear;
-			_fillColor = fillColor;
-			_requireUpdateMesh = true;
 			_polygonPoints = points;
+			_fillColor = fillColor;
+			_colors = null;
+
+			_touchDisabled = false;
+			_requireUpdateMesh = true;
 		}
 
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="points"></param>
+		/// <param name="colors"></param>
+		public void DrawPolygon(Vector2[] points, Color[] colors)
+		{
+			_type = 3;
+			_polygonPoints = points;
+			_colors = colors;
+
+			_touchDisabled = false;
+			_requireUpdateMesh = true;
+		}
+
+		/// <summary>
+		/// 
+		/// </summary>
 		public void Clear()
 		{
 			_type = 0;
-			_optimizeNotTouchable = true;
+			_touchDisabled = true;
 			graphics.ClearMesh();
 		}
 
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="context"></param>
 		public override void Update(UpdateContext context)
 		{
 			if (_requireUpdateMesh)
@@ -73,11 +163,11 @@ namespace FairyGUI
 					if (_contentRect.width > 0 && _contentRect.height > 0)
 					{
 						if (_type == 1)
-							graphics.DrawRect(_contentRect, _lineSize, _lineColor, _fillColor);
+							graphics.DrawRect(_contentRect, _lineSize, _lineColor, _fillColor, _colors);
 						else if (_type == 2)
-							graphics.DrawEllipse(_contentRect, _fillColor);
+							graphics.DrawEllipse(_contentRect, _fillColor, _colors);
 						else
-							graphics.DrawPolygon(_polygonPoints, _fillColor);
+							graphics.DrawPolygon(_polygonPoints, _fillColor, _colors);
 					}
 					else
 						graphics.ClearMesh();

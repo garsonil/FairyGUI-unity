@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System.Collections;
+using UnityEngine;
 using FairyGUI.Utils;
 
 namespace FairyGUI
@@ -22,6 +23,7 @@ namespace FairyGUI
 		//image
 		public Rect? scale9Grid;
 		public bool scaleByTile;
+		public int tileGridIndice;
 		public NTexture texture;
 
 		//movieclip
@@ -32,6 +34,7 @@ namespace FairyGUI
 
 		//componenet
 		public XML componentData;
+		public DisplayListItem[] displayList;
 
 		//font
 		public BitmapFont bitmapFont;
@@ -45,6 +48,23 @@ namespace FairyGUI
 		public object Load()
 		{
 			return owner.GetItemAsset(this);
+		}
+	}
+
+	/// <summary>
+	/// 
+	/// </summary>
+	public class DisplayListItem
+	{
+		public PackageItem packageItem;
+		public string type;
+		public XML desc;
+		public int listItemCount;
+
+		public DisplayListItem(PackageItem pi, string type)
+		{
+			this.packageItem = pi;
+			this.type = type;
 		}
 	}
 }

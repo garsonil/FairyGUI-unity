@@ -24,7 +24,6 @@ namespace FairyGUI
 		public bool clipped;
 		public ClipInfo clipInfo;
 
-		public int counter;
 		public int renderingOrder;
 		public int batchingDepth;
 		public int rectMaskDepth;
@@ -32,7 +31,9 @@ namespace FairyGUI
 		public float alpha;
 		public bool grayed;
 
+		public static UpdateContext current;
 		public static uint frameId;
+		public static bool working;
 		public static EventCallback0 OnBegin;
 		public static EventCallback0 OnEnd;
 
@@ -44,12 +45,16 @@ namespace FairyGUI
 			frameId = 1;
 		}
 
+		/// <summary>
+		/// 
+		/// </summary>
 		public void Begin()
 		{
+			current = this;
+
 			frameId++;
 			if (frameId == 0)
 				frameId = 1;
-			counter = 0;
 			renderingOrder = 0;
 			batchingDepth = 0;
 			rectMaskDepth = 0;
@@ -60,6 +65,9 @@ namespace FairyGUI
 			clipped = false;
 			_clipStack.Clear();
 
+			Stats.ObjectCount = 0;
+			Stats.GraphicsCount = 0;
+
 			_tmpBegin = OnBegin;
 			OnBegin = null;
 
@@ -69,16 +77,29 @@ namespace FairyGUI
 				_tmpBegin.Invoke();
 				_tmpBegin = OnBegin;
 			}
+
+			working = true;
 		}
 
+		/// <summary>
+		/// 
+		/// </summary>
 		public void End()
 		{
+			working = false;
+
 			if (OnEnd != null)
 				OnEnd.Invoke();
 
 			OnEnd = null;
 		}
 
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="clipId"></param>
+		/// <param name="clipRect"></param>
+		/// <param name="softness"></param>
 		public void EnterClipping(uint clipId, Rect? clipRect, Vector4? softness)
 		{
 			_clipStack.Push(clipInfo);
@@ -149,6 +170,9 @@ namespace FairyGUI
 			}
 		}
 
+		/// <summary>
+		/// 
+		/// </summary>
 		public void LeaveClipping()
 		{
 			if (clipInfo.stencil)

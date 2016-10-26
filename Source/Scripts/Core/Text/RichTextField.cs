@@ -7,140 +7,223 @@ namespace FairyGUI
 	/// <summary>
 	/// 
 	/// </summary>
-	public class Emoji
-	{
-		/// <summary>
-		/// 代表图片资源url。
-		/// </summary>
-		public string url;
-
-		/// <summary>
-		/// 图片宽度。不设置（0）则表示使用原始宽度。
-		/// </summary>
-		public int width;
-
-		/// <summary>
-		/// 图片高度。不设置（0）则表示使用原始高度。
-		/// </summary>
-		public int height;
-
-		public Emoji(string url, int width, int height)
-		{
-			this.url = url;
-			this.width = width;
-			this.height = height;
-		}
-
-		public Emoji(string url)
-		{
-			this.url = url;
-		}
-	}
-
-	/// <summary>
-	/// 
-	/// </summary>
 	public class RichTextField : Container
 	{
-		public EventListener onFocusIn { get; private set; }
-		public EventListener onFocusOut { get; private set; }
-		public EventListener onChanged { get; private set; }
-
+		/// <summary>
+		/// 
+		/// </summary>
 		public IHtmlPageContext htmlPageContext { get; set; }
+
+		/// <summary>
+		/// 
+		/// </summary>
 		public HtmlParseOptions htmlParseOptions { get; private set; }
+
+		/// <summary>
+		/// 
+		/// </summary>
 		public Dictionary<uint, Emoji> emojies { get; set; }
 
+		/// <summary>
+		/// 
+		/// </summary>
 		public TextField textField { get; private set; }
 
+		List<IHtmlObject> _toCollect;
+		EventCallback0 _refreshObjectsDelegate;
+
 		public RichTextField()
-		{
-			Create(new TextField());
-		}
-
-		public RichTextField(TextField textField)
-		{
-			Create(textField);
-		}
-
-		void Create(TextField textField)
 		{
 			CreateGameObject("RichTextField");
 			this.opaque = true;
 
-			onFocusIn = new EventListener(this, "onFocusIn");
-			onFocusOut = new EventListener(this, "onFocusOut");
-			onChanged = new EventListener(this, "onChanged");
-
 			htmlPageContext = HtmlPageContext.inst;
 			htmlParseOptions = new HtmlParseOptions();
 
-			this.textField = textField;
-			textField.richTextField = this;
+			this.textField = new TextField();
+			textField.EnableRichSupport(this);
 			AddChild(textField);
 
-			graphics = textField.graphics;
+			_refreshObjectsDelegate = InternalRefreshObjects;
 		}
 
-		public string text
+		/// <summary>
+		/// 
+		/// </summary>
+		virtual public string text
 		{
 			get { return textField.text; }
 			set { textField.text = value; }
 		}
 
-		public string htmlText
+		/// <summary>
+		/// 
+		/// </summary>
+		virtual public string htmlText
 		{
 			get { return textField.htmlText; }
 			set { textField.htmlText = value; }
 		}
 
-		public TextFormat textFormat
+		/// <summary>
+		/// 
+		/// </summary>
+		virtual public TextFormat textFormat
 		{
 			get { return textField.textFormat; }
 			set { textField.textFormat = value; }
 		}
 
-		public IHtmlObject GetHtmlObject(string name)
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="name"></param>
+		/// <returns></returns>
+		public HtmlElement GetHtmlElement(string name)
 		{
-			List<HtmlElement> elements = textField.GetHtmlElements();
+			List<HtmlElement> elements = textField.htmlElements;
 			int count = elements.Count;
 			for (int i = 0; i < count; i++)
 			{
 				HtmlElement element = elements[i];
-				if (element.htmlObject != null && name.Equals(element.name, System.StringComparison.OrdinalIgnoreCase))
-					return element.htmlObject;
+				if ( name.Equals(element.name, System.StringComparison.OrdinalIgnoreCase))
+					return element;
 			}
 
 			return null;
 		}
 
-		public IHtmlObject GetHtmlObjectAt(int index)
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="index"></param>
+		/// <returns></returns>
+		public HtmlElement GetHtmlElementAt(int index)
 		{
-			List<HtmlElement> elements = textField.GetHtmlElements();
-			return elements[index].htmlObject;
+			return textField.htmlElements[index];
 		}
 
-		public int htmlObjectCount
+		/// <summary>
+		/// 
+		/// </summary>
+		public int htmlElementCount
 		{
-			get { return textField.GetHtmlElements().Count; }
+			get { return textField.htmlElements.Count; }
+		}
+
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="index"></param>
+		/// <param name="show"></param>
+		public void ShowHtmlObject(int index, bool show)
+		{
+			HtmlElement element = textField.htmlElements[index];
+			if (!element.hidden && element.htmlObject != null && element.type != HtmlElementType.Link)
+			{
+				if (show)
+				{
+					if (!element.added)
+					{
+						element.added = true;
+						element.htmlObject.Add();
+					}
+				}
+				else
+				{
+					if (element.added)
+					{
+						element.added = false;
+						element.htmlObject.Remove();
+					}
+				}
+			}
+		}
+
+		public override void EnsureSizeCorrect()
+		{
+			textField.EnsureSizeCorrect();
 		}
 
 		override protected void OnSizeChanged(bool widthChanged, bool heightChanged)
 		{
-			textField.size = this.size;
+			textField.size = _contentRect.size; //千万不可以调用this.size,后者会触发EnsureSizeCorrect
 
 			base.OnSizeChanged(widthChanged, heightChanged);
 		}
 
-		public override void Update(UpdateContext context)
+		internal void CleanupObjects()
 		{
-			if (textField.input)
+			List<HtmlElement> elements = textField.htmlElements;
+			int count = elements.Count;
+			for (int i = 0; i < count; i++)
 			{
-				textField._BeforeClip(context);
-				base.Update(context);
-				textField._AfterClip(context);
+				HtmlElement element = elements[i];
+				if (element.htmlObject != null)
+				{
+					if (UpdateContext.working)
+					{
+						//Update里不允许增删对象。放到延迟队列里
+						if (_toCollect == null)
+							_toCollect = new List<IHtmlObject>();
+						_toCollect.Add(element.htmlObject);
+					}
+					else
+					{
+						element.htmlObject.Remove();
+						htmlPageContext.FreeObject(element.htmlObject);
+					}
+				}
 			}
+		}
+
+		internal void RefreshObjects()
+		{
+			if (UpdateContext.working)
+				UpdateContext.OnEnd += _refreshObjectsDelegate;
 			else
-				base.Update(context);
+				InternalRefreshObjects();
+		}
+
+		virtual protected void InternalRefreshObjects()
+		{
+			List<HtmlElement> elements = textField.htmlElements;
+			int count = _toCollect != null ? _toCollect.Count : 0;
+			if (count > 0)
+			{
+				for (int i = 0; i < count; i++)
+				{
+					IHtmlObject htmlObject = _toCollect[i];
+					htmlObject.Remove();
+					htmlPageContext.FreeObject(htmlObject);
+				}
+				_toCollect.Clear();
+			}
+
+			count = elements.Count;
+			for (int i = 0; i < count; i++)
+			{
+				HtmlElement element = elements[i];
+				if (element.htmlObject != null)
+				{
+					if (element.hidden)
+					{
+						if (element.added)
+						{
+							element.added = false;
+							element.htmlObject.Remove();
+						}
+					}
+					else
+					{
+						if (!element.added)
+						{
+							element.added = true;
+							element.htmlObject.Add();
+						}
+					}
+				}
+			}
 		}
 	}
 }

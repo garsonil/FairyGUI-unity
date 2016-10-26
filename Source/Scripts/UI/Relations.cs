@@ -14,33 +14,6 @@ namespace FairyGUI
 
 		internal GObject handling;
 
-		static string[] RELATION_NAMES = new string[] {
-			"left-left",//0
-			"left-center",
-			"left-right",
-			"center-center",
-			"right-left",
-			"right-center",
-			"right-right",
-			"top-top",//7
-			"top-middle",
-			"top-bottom",
-			"middle-middle",
-			"bottom-top",
-			"bottom-middle",
-			"bottom-bottom",
-			"width-width",//14
-			"height-height",//15
-			"leftext-left",//16
-			"leftext-right",
-			"rightext-left",
-			"rightext-right",
-			"topext-top",//20
-			"topext-bottom",
-			"bottomext-top",
-			"bottomext-bottom"//23
-		};
-
 		public Relations(GObject owner)
 		{
 			_owner = owner;
@@ -65,8 +38,10 @@ namespace FairyGUI
 		/// <param name="usePercent"></param>
 		public void Add(GObject target, RelationType relationType, bool usePercent)
 		{
-			foreach (RelationItem item in _items)
+			int cnt = _items.Count;
+			for (int i = 0; i < cnt; i++)
 			{
+				RelationItem item = _items[i];
 				if (item.target == target)
 				{
 					item.Add(relationType, usePercent);
@@ -81,38 +56,180 @@ namespace FairyGUI
 
 		void AddItems(GObject target, string sidePairs)
 		{
-			string[] arr = sidePairs.Split(',');
-			string s;
-			bool usePercent;
-			int tid;
-
 			RelationItem newItem = new RelationItem(_owner);
 			newItem.target = target;
-
-			int cnt = arr.Length;
-			for (int i = 0; i < cnt; i++)
+			
+			int start = 0;
+			int end = 0;
+			int ms;
+			int c1;
+			int c2;
+			bool usePercent;
+			RelationType tid;
+			//0 gc 解析版本
+			while (end < sidePairs.Length)
 			{
-				s = arr[i];
-				if (string.IsNullOrEmpty(s))
-					continue;
-
-				if (s[s.Length - 1] == '%')
+				start = end;
+				end = sidePairs.IndexOf(",", start);
+				if (end == -1)
+					end = sidePairs.Length;
+				usePercent = sidePairs[end - 1] == '%';
+				ms = sidePairs.IndexOf('-', start, end-start);
+				end++;
+				if (ms != -1)
 				{
-					s = s.Substring(0, s.Length - 1);
-					usePercent = true;
+					c1 = ((int)sidePairs[start]);
+					c2 = ((int)sidePairs[ms + 1]);
 				}
 				else
-					usePercent = false;
+				{
+					c1 = ((int)sidePairs[start]);
+					c2 = c1;
+				}
 
-				int j = s.IndexOf("-");
-				if (j == -1)
-					s = s + "-" + s;
+				switch (c1)
+				{
+					case 119://width
+						tid = RelationType.Width;
+						break;
 
-				tid = Array.IndexOf(RELATION_NAMES, s);
-				if (tid == -1)
-					throw new ArgumentException("invalid relation type: " + s);
+					case 104://height
+						tid = RelationType.Height;
+						break;
 
-				newItem.QuickAdd((RelationType)tid, usePercent);
+					case 109://middle
+						tid = RelationType.Middle_Middle;
+						break;
+
+					case 99://center
+						tid = RelationType.Center_Center;
+						break;
+
+					case 108: //left
+						if (ms - start > 4) //leftext
+						{
+							if (c2 == 108)
+								tid = RelationType.LeftExt_Left;
+							else
+								tid = RelationType.LeftExt_Right;
+						}
+						else
+						{
+							switch (c2)
+							{
+								case 108:
+									tid = RelationType.Left_Left;
+									break;
+
+								case 114:
+									tid = RelationType.Left_Right;
+									break;
+
+								case 99:
+									tid = RelationType.Left_Center;
+									break;
+
+								default:
+									throw new ArgumentException("invalid relation type: " + sidePairs);
+							}
+						}
+						break;
+
+					case 114: //right
+						if (ms - start > 5) //rightext
+						{
+							if (c2 == 108)
+								tid = RelationType.RightExt_Left;
+							else
+								tid = RelationType.RightExt_Right;
+						}
+						else
+						{
+							switch (c2)
+							{
+								case 108:
+									tid = RelationType.Right_Left;
+									break;
+
+								case 114:
+									tid = RelationType.Right_Right;
+									break;
+
+								case 99:
+									tid = RelationType.Right_Center;
+									break;
+
+								default:
+									throw new ArgumentException("invalid relation type: " + sidePairs);
+							}
+						}
+						break;
+
+					case 116://top
+						if (ms - start > 3) //topext
+						{
+							if (c2 == 116)
+								tid = RelationType.TopExt_Top;
+							else
+								tid = RelationType.TopExt_Bottom;
+						}
+						else
+						{
+							switch (c2)
+							{
+								case 116:
+									tid = RelationType.Top_Top;
+									break;
+
+								case 98:
+									tid = RelationType.Top_Bottom;
+									break;
+
+								case 109:
+									tid = RelationType.Top_Middle;
+									break;
+
+								default:
+									throw new ArgumentException("invalid relation type: " + sidePairs);
+							}
+						}
+						break;
+
+					case 98://bottom
+						if (ms - start > 6) //bottomext
+						{
+							if (c2 == 116)
+								tid = RelationType.BottomExt_Top;
+							else
+								tid = RelationType.BottomExt_Bottom;
+						}
+						else
+						{
+							switch (c2)
+							{
+								case 116:
+									tid = RelationType.Bottom_Top;
+									break;
+
+								case 98:
+									tid = RelationType.Bottom_Bottom;
+									break;
+
+								case 109:
+									tid = RelationType.Bottom_Middle;
+									break;
+
+								default:
+									throw new ArgumentException("invalid relation type: " + sidePairs);
+							}
+						}
+						break;
+
+					default:
+						throw new ArgumentException("invalid relation type: " + sidePairs);
+				}
+
+				newItem.InternalAdd(tid, usePercent);
 			}
 
 			_items.Add(newItem);
@@ -154,8 +271,10 @@ namespace FairyGUI
 		/// <returns></returns>
 		public bool Contains(GObject target)
 		{
-			foreach (RelationItem item in _items)
+			int cnt = _items.Count;
+			for (int i = 0; i < cnt; i++)
 			{
+				RelationItem item = _items[i];
 				if (item.target == target)
 					return true;
 			}
@@ -189,8 +308,10 @@ namespace FairyGUI
 		/// </summary>
 		public void ClearAll()
 		{
-			foreach (RelationItem item in _items)
+			int cnt = _items.Count;
+			for (int i = 0; i < cnt; i++)
 			{
+				RelationItem item = _items[i];
 				item.Dispose();
 			}
 			_items.Clear();
@@ -228,13 +349,12 @@ namespace FairyGUI
 		/// <param name="dHeight"></param>
 		public void OnOwnerSizeChanged(float dWidth, float dHeight)
 		{
-			if (_items.Count == 0)
+			int cnt = _items.Count;
+			if (cnt == 0)
 				return;
 
-			foreach (RelationItem item in _items)
-			{
-				item.ApplyOnSelfSizeChanged(dWidth, dHeight);
-			}
+			for (int i = 0; i < cnt; i++)
+				_items[i].ApplyOnSelfSizeChanged(dWidth, dHeight);
 		}
 
 		/// <summary>
@@ -250,14 +370,13 @@ namespace FairyGUI
 
 		public void Setup(XML xml)
 		{
-			XMLList col = xml.Elements("relation");
-			if (col == null)
-				return;
+			XMLList.Enumerator et = xml.GetEnumerator("relation");
 
 			string targetId;
 			GObject target;
-			foreach (XML cxml in col)
+			while (et.MoveNext())
 			{
+				XML cxml = et.Current;
 				targetId = cxml.GetAttribute("target");
 				if (_owner.parent != null)
 				{
